@@ -6,3 +6,4 @@ export * from './prng';
 export * from './stats';
 export * from './solve';
 export * from './warnings';
+export * from './run';
