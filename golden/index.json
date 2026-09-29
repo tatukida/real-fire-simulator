@@ -1,6 +1,6 @@
 {
- "specVersion": "0.8",
- "generatedAt": "2026-09-29T04:56:07+00:00",
+ "specVersion": "0.9",
+ "generatedAt": "2026-09-29T05:34:52+00:00",
  "python": "3.14.3",
  "numpy": "2.5.3",
  "cases": [
