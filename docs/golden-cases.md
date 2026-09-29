@@ -1,6 +1,6 @@
 # ゴールデンケース一覧（フェーズ2 手順⑦）
 
-- 状態: **承認済み**（2026-09-29, 人間の承認）
+- 状態: **承認済み**（2026-09-29, 人間の承認）。参照実装の作成後に、人間の決定（同日）を追記した（「追記した決定」の節と、各節の該当箇所）。
 - 根拠: `docs/spec.md` v0.8、`docs/adr/0003-solver-warnings-and-sanity-ranges.md`（下書き）
 - 生成: `pipeline/reference/generate_golden.py`（Python 参照実装 `pipeline/reference/simulate.py` を使う）。`golden/` への書き出しは人間が行う。
 
@@ -32,12 +32,15 @@ JPY_SP500 1972〜2025（54年）、JPY_WORLD_DM 1972〜2020（49年）、JPY_GOL
 
 ケース全体では次を出す。
 
-- N（= 共通期間の年数 − T + 1）と注意段階（`none` / `caution` / `strong` / `noHistory`）
-- 逆算（代表手法 = ブートストラップ）: `spending`・`successRate`・`upper`・`capped`・`evaluations`。解がなければ `null`（ADR-0003 決定 1・2）
+- N（= 共通期間の年数 − T + 1）と注意段階（`none` / `caution` / `strong` / `noHistory`）。T = 0 でも式を特別扱いせず、N = 共通期間の年数 + 1 とする（B4 は 99 通り）
+- 逆算（代表手法 = ブートストラップ）: `spending`・`successRate`・`upper`・`capped`・`evaluations`。解がなければ `null`（ADR-0003 決定 1・2）。
+  `evaluations` の数え方は ADR-0003 決定 6（生活費 0 と初期資産の判定も含める。capped なら 2、通常は 2 + 中点の回数）
 
 「成功率のみ」のケースは、N・注意段階と 3 手法の成功率・成功数だけを出す。
 
 ## ケース
+
+ケース数は **24 件**（A 6 + B 4 + C 4 + D 1 + E 6 + F 3）。
 
 | ID | 系列 | T | 生活費 | 信託報酬 | 目的 | 出力 |
 |---|---|---|---|---|---|---|
@@ -89,10 +92,11 @@ JPY_SP500 1972〜2025（54年）、JPY_WORLD_DM 1972〜2020（49年）、JPY_GOL
 ヒストリカルの成功率は 4 / 8 = 50%。ブートストラップは、1 ブロック（3 年）の開始位置 10 通りのうち 6 通り（2, 3, 4, 7, 8, 9）が −100% を含むため、成功率は 40% 前後になり、生活費 0 でも 90% に届かないので逆算は `null` になる。
 
 パラメトリックは計算しない（`ln(1 + r)` が −∞ になるため）。出力では `parametric: null` とし、理由を `note` に書く。
+D1 の `input` は、`series.name` が `"SYNTH_D1"`、`series.startYear`・`series.endYear`・`currency` が `null`、`initial` が 1000。
 
 ## 許容誤差（各ケースの JSON に書く）
 
-数値の相対比較は `|a − b| ≤ rel · max(|a|, |b|)` とする（両方 0 なら一致）。
+数値の相対比較は `|a − b| ≤ rel · max(|a|, |b|)` とする（両方 0 なら一致）。成功率は割合（0〜1）で持ち、±0.5 ポイントは絶対差 0.005。
 
 | 対象 | ヒストリカル | ブートストラップ | パラメトリック |
 |---|---|---|---|
@@ -112,10 +116,61 @@ JPY_SP500 1972〜2025（54年）、JPY_WORLD_DM 1972〜2020（49年）、JPY_GOL
   cases/<ID>.json     # 入力（系列を含む）、許容誤差、出力
 ```
 
-合計 500KB 以下を目標とする。
+合計 500KB 以下を目標とする（参照実装での生成結果は約 390KB）。生成は `cd pipeline && python -m reference.generate_golden <出力先>`。
+
+### ケース JSON の構造
+
+TS 側のテストはこの構造を読む。キー名はすべて camelCase。浮動小数は Python の `repr` 相当で書き、読み戻すと同じ値になる。
+
+```
+{
+  "id": "A1", "purpose": "標準",
+  "outputs": "all" | "success_rate_only",
+  "input": {
+    "series": { "name": "USD_SP500", "startYear": 1928, "endYear": 2025, "values": [ … ] },
+    "currency": "USD" | "JPY" | null,        # D1 は null
+    "initial": 1000000, "spending": 40000,     # 実質額
+    "fee": 0.001, "horizon": 30, "seed": 20260929, "paths": 1000,
+    "blockLength": 3, "targetRate": 0.9, "solveRelWidth": 0.0001
+  },
+  "tolerance": {
+    "relativeFormula": "|a - b| <= rel * max(|a|, |b|)",
+    "historical": { "successRateAbs": 0.0,   "valuesRel": 0.0,  "counts": "exact" },
+    "bootstrap":  { "successRateAbs": 0.005, "valuesRel": 1e-9, "counts": "successRate" },
+    "parametric": { "successRateAbs": 0.005, "valuesRel": 1e-6, "counts": "successRate" },
+    "solve": { "spendingRel": 1e-9, "upperRel": 1e-9, "successRateAbs": 0.005 },
+    "exact": ["n", "warningLevel", "solve.evaluations", "solve.capped", "solve is null"]
+  },
+  "output": {
+    "n": 69, "warningLevel": "none" | "caution" | "strong" | "noHistory",
+    "historical" | "bootstrap" | "parametric": null | {
+      "successRate": 0.852, "successCount": 852, "paths": 1000,
+      # 以下は outputs = "all" のときだけ
+      "percentiles": { "p10": [年 0〜T], "p25": […], "p50": […], "p75": […], "p90": […] },
+      "samplePaths": { "count": 200, "first": [年 0〜T], "last": [年 0〜T] },
+      "ruinHistogram": { "counts": [年 1〜T], "endedAtZero": 0 }
+    },
+    "solve": null | { "spending": …, "successRate": …, "upper": …, "capped": false, "evaluations": 16 },
+                                             # outputs = "all" のときだけ
+    "note": "…"                              # D1 のみ（パラメトリックを計算しない理由）
+  }
+}
+```
+
+- `valuesRel` はパーセンタイルとサンプルパスの残高に使う。`counts: "successRate"` は、成功数・破産年ヒストグラム・サンプルパス本数を成功率の許容誤差に従わせる意味。
+- `index.json` は `specVersion`・`generatedAt`・`python`・`numpy`・`cases`（ケース ID の配列）を持つ。
+
+## 追記した決定（2026-09-29, 人間の決定）
+
+1. **逆算の `evaluations`**: 成功率を計算した回数をすべて数える。下端（生活費 0）→ 上端（初期資産）→ 二分探索の中点の順。capped なら 2、通常は 2 + 中点の回数（`null` のときは結果自体が `null`）。ADR-0003 決定 6。
+2. **T = 0 の N**: 式 N = 共通期間の年数 − T + 1 を特別扱いせず、N = 共通期間の年数 + 1 とする。B4（USD_SP500, 98 年）は 99 通りで、最後の開始年の窓は空。ADR-0003 決定 7。
+3. **許容誤差の比較式**: `|a − b| ≤ rel · max(|a|, |b|)`。逆算の `successRate` は ±0.5 ポイント。
+4. **ケース数**: 24 件。
+5. **ケース JSON の構造**: 上記「ケース JSON の構造」のとおり。
 
 ## 未確認事項（spec への追記候補）
 
 1. **パラメトリックで `r_real ≤ −1` を含む系列の扱い**。spec 7章 決定済み 5 は `ln(1 + r_real)` の平均と標準偏差を使うとだけ定めており、`1 + r_real ≤ 0` の年を含む系列の扱いは spec に定めがない（2026-09-29 に確認）。
    実データの実質リターンの最小値は −0.565（JPY_WORLD_DM）で、現在の配信データでは起きない。
-   追記候補: 「パラメトリックは、`1 + r_real ≤ 0` の年を含む系列を入力検証で拒否する」。spec への反映までは実装しない（ゴールデンでは D1 でパラメトリックを計算しないことで回避する）。
+   **決定（2026-09-29, 人間の決定）**: パラメトリックは、`1 + r_real ≤ 0` の年を含む系列を入力検証で拒否する。参照実装（`simulate.py` の `log_moments`）は `ValueError` を出す。ゴールデンでは D1 でパラメトリックを計算しない。
+   spec への追記は候補のまま（spec は未変更。ADR-0003 決定 8）。
