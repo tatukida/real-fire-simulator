@@ -1,0 +1,191 @@
+{
+ "id": "D1",
+ "purpose": "倍率 0、endedAtZero、逆算が null",
+ "outputs": "all",
+ "input": {
+  "series": {
+   "name": "SYNTH_D1",
+   "startYear": null,
+   "endYear": null,
+   "values": [
+    0.05,
+    0.03,
+    0.04,
+    0.02,
+    -1.0,
+    0.06,
+    0.01,
+    0.05,
+    0.04,
+    -1.0
+   ]
+  },
+  "currency": null,
+  "initial": 1000,
+  "spending": 0,
+  "fee": 0.0,
+  "horizon": 3,
+  "seed": 20260929,
+  "paths": 1000,
+  "blockLength": 3,
+  "targetRate": 0.9,
+  "solveRelWidth": 0.0001
+ },
+ "tolerance": {
+  "relativeFormula": "|a - b| <= rel * max(|a|, |b|)",
+  "historical": {
+   "successRateAbs": 0.0,
+   "valuesRel": 0.0,
+   "counts": "exact"
+  },
+  "bootstrap": {
+   "successRateAbs": 0.005,
+   "valuesRel": 1e-09,
+   "counts": "successRate"
+  },
+  "parametric": {
+   "successRateAbs": 0.005,
+   "valuesRel": 1e-06,
+   "counts": "successRate"
+  },
+  "solve": {
+   "spendingRel": 1e-09,
+   "upperRel": 1e-09,
+   "successRateAbs": 0.005
+  },
+  "exact": [
+   "n",
+   "warningLevel",
+   "solve.evaluations",
+   "solve.capped",
+   "solve is null"
+  ]
+ },
+ "output": {
+  "n": 8,
+  "warningLevel": "strong",
+  "historical": {
+   "successRate": 0.5,
+   "successCount": 4,
+   "paths": 8,
+   "percentiles": {
+    "p10": [
+     1000.0,
+     707.0,
+     0.0,
+     0.0
+    ],
+    "p25": [
+     1000.0,
+     1017.5,
+     795.375,
+     0.0
+    ],
+    "p50": [
+     1000.0,
+     1035.0,
+     1065.6999999999998,
+     546.312
+    ],
+    "p75": [
+     1000.0,
+     1050.0,
+     1073.775,
+     1108.2225
+    ],
+    "p90": [
+     1000.0,
+     1053.0,
+     1084.65,
+     1124.319
+    ]
+   },
+   "samplePaths": {
+    "count": 8,
+    "first": [
+     1000.0,
+     1050.0,
+     1081.5,
+     1124.76
+    ],
+    "last": [
+     1000.0,
+     1050.0,
+     1092.0,
+     0.0
+    ]
+   },
+   "ruinHistogram": {
+    "counts": [
+     0,
+     1,
+     1
+    ],
+    "endedAtZero": 2
+   }
+  },
+  "bootstrap": {
+   "successRate": 0.418,
+   "successCount": 418,
+   "paths": 1000,
+   "percentiles": {
+    "p10": [
+     1000.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "p25": [
+     1000.0,
+     1010.0,
+     0.0,
+     0.0
+    ],
+    "p50": [
+     1000.0,
+     1030.0,
+     1060.8,
+     0.0
+    ],
+    "p75": [
+     1000.0,
+     1050.0,
+     1071.2,
+     1102.92
+    ],
+    "p90": [
+     1000.0,
+     1050.0,
+     1082.5500000000002,
+     1124.76
+    ]
+   },
+   "samplePaths": {
+    "count": 200,
+    "first": [
+     1000.0,
+     1060.0,
+     1070.6,
+     1124.1299999999999
+    ],
+    "last": [
+     1000.0,
+     1030.0,
+     1071.2,
+     1092.624
+    ]
+   },
+   "ruinHistogram": {
+    "counts": [
+     0,
+     189,
+     199
+    ],
+    "endedAtZero": 194
+   }
+  },
+  "parametric": null,
+  "solve": null,
+  "note": "パラメトリックは計算しない（−100% の年で ln(1 + r) が −∞ のため）"
+ }
+}
