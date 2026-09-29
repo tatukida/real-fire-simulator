@@ -97,3 +97,31 @@ describe('パラメトリック', () => {
     expect(() => parametricPaths(Float64Array.from([0.1]), 5, 1, 1)).toThrow(RangeError);
   });
 });
+
+describe('パラメトリックの入力検証（ADR-0003 決定 8）', () => {
+  const base = [0.05, 0.03, 0.04, 0.02, 0.06];
+  const withValue = (x: number): Float64Array => Float64Array.from([...base, x]);
+
+  it.each([
+    ['−100%（1 + r = 0）', -1],
+    ['−100% 未満（1 + r < 0）', -1.5],
+    ['NaN', NaN],
+    ['+Infinity', Infinity],
+    ['−Infinity', -Infinity],
+  ])('%s を含む系列は RangeError', (_label, x) => {
+    expect(() => logReturnMoments(withValue(x))).toThrow(RangeError);
+    expect(() => parametricPaths(withValue(x), 3, 10, 1)).toThrow(RangeError);
+  });
+  it('境界: 1 + r がごく小さな正の値（2^−52）なら通る', () => {
+    const s = withValue(-1 + 2 ** -52);
+    expect(1 + (s[5] as number)).toBeGreaterThan(0);
+    const { mu, sigma } = logReturnMoments(s);
+    expect(Number.isFinite(mu) && Number.isFinite(sigma)).toBe(true);
+    expect(() => parametricPaths(s, 3, 10, 1)).not.toThrow();
+  });
+  it('ヒストリカルとブートストラップは −100% を含む系列を受け付ける', () => {
+    const s = withValue(-1);
+    expect(historicalPaths(s, 3)?.paths).toBe(4);
+    expect(bootstrapPaths(s, 3, 10, 1).paths).toBe(10);
+  });
+});

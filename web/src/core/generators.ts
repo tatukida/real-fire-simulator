@@ -69,10 +69,19 @@ export function bootstrapPaths(
   return { paths, years, values };
 }
 
-/** ln(1 + r) の標本平均と標本標準偏差（自由度 n−1）。NumPy の mean / std(ddof=1) と同じ 2 パス計算。 */
+/**
+ * ln(1 + r) の標本平均と標本標準偏差（自由度 n−1）。NumPy の mean / std(ddof=1) と同じ 2 パス計算。
+ * 1 + r ≤ 0 の年（ln が定義できない）や有限でない値を含む系列は RangeError で拒否する（ADR-0003 決定 8）。
+ */
 export function logReturnMoments(series: Float64Array): { mu: number; sigma: number } {
   checkSeries(series, 2);
   const n = series.length;
+  for (let i = 0; i < n; i++) {
+    const r = series[i] as number;
+    if (!Number.isFinite(r) || 1 + r <= 0) {
+      throw new RangeError(`パラメトリックは 1 + r ≤ 0 または有限でない値を含む系列を扱えません（添字 ${i}: ${r}）`);
+    }
+  }
   let sum = 0;
   for (let i = 0; i < n; i++) sum += Math.log(1 + (series[i] as number));
   const mu = sum / n;
