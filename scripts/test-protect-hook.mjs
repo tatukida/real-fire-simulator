@@ -24,6 +24,20 @@ const cases = [
   ['Bash git checkout -- docs/spec.md', { tool_name: 'Bash', tool_input: { command: 'git checkout -- docs/spec.md' } }, 2],
   ['PowerShell Set-Content docs\\spec.md', { tool_name: 'PowerShell', tool_input: { command: 'Set-Content docs\\spec.md "x"' } }, 2],
   ['壊れた入力は拒否', null, 2],
+  // ヒアドキュメント・-m の除外ですり抜けないこと
+  ['Bash cat > docs/spec.md <<EOF（リダイレクト先は検査）', { tool_name: 'Bash', tool_input: { command: "cat > docs/spec.md <<'EOF'\nx\nEOF" } }, 2],
+  ['Bash cat <<EOF > golden/x.json', { tool_name: 'Bash', tool_input: { command: "cat <<'EOF' > golden/x.json\n{}\nEOF" } }, 2],
+  ['Bash ヒアドキュメント後の rm docs/spec.md', { tool_name: 'Bash', tool_input: { command: "cat > /tmp/x <<'EOF'\nx\nEOF\nrm docs/spec.md" } }, 2],
+  ['Bash 展開される本文の $(rm docs/spec.md)', { tool_name: 'Bash', tool_input: { command: 'cat > /tmp/x <<EOF\n$(rm docs/spec.md)\nEOF' } }, 2],
+  ['Bash python - <<EOF の本文（スクリプト）は検査', { tool_name: 'Bash', tool_input: { command: "python - <<'EOF'\nopen(\"docs/spec.md\", \"w\").write(\"x\")\nEOF" } }, 2],
+  ['Bash cat <<EOF | sh の本文は検査', { tool_name: 'Bash', tool_input: { command: "cat <<'EOF' | sh\nrm docs/spec.md\nEOF" } }, 2],
+  ['Bash 本文内の -m で後続を隠せない', { tool_name: 'Bash', tool_input: { command: "python - <<'EOF'\nx -m '\nEOF\nrm docs/spec.md\n'" } }, 2],
+  ['Bash git commit -m "x" > docs/spec.md', { tool_name: 'Bash', tool_input: { command: 'git commit -m "x" > docs/spec.md' } }, 2],
+  ['Bash git commit -m "$(rm docs/spec.md)"', { tool_name: 'Bash', tool_input: { command: 'git commit -m "$(rm docs/spec.md)"' } }, 2],
+  ['Bash -m のヒアドキュメント後の && rm docs/spec.md', { tool_name: 'Bash', tool_input: { command: "git commit -m \"$(cat <<'EOF'\nmsg\nEOF\n)\" && rm docs/spec.md" } }, 2],
+  ['Bash 文字列中の -m で後続を隠せない', { tool_name: 'Bash', tool_input: { command: 'echo " -m " > docs/spec.md " "' } }, 2],
+  ['PowerShell -m "a\\" > docs/spec.md; "', { tool_name: 'PowerShell', tool_input: { command: 'git commit -m "a\\" > docs/spec.md; "' } }, 2],
+  ['PowerShell ヒア文字列の後の Set-Content', { tool_name: 'PowerShell', tool_input: { command: "$m = @'\nx\n'@\nSet-Content docs/spec.md $m" } }, 2],
   // 許可されるべきもの
   ['Edit web/tests/unit/a.test.ts', { tool_name: 'Edit', tool_input: { file_path: P('web/tests/unit/a.test.ts') } }, 0],
   ['Edit web/src/core/prng.ts', { tool_name: 'Edit', tool_input: { file_path: P('web/src/core/prng.ts') } }, 0],
@@ -32,6 +46,10 @@ const cases = [
   ['Bash cat docs/spec.md', { tool_name: 'Bash', tool_input: { command: 'cat docs/spec.md | grep 決定' } }, 0],
   ['Bash git diff docs/spec.md 2>/dev/null', { tool_name: 'Bash', tool_input: { command: 'git diff docs/spec.md 2>/dev/null' } }, 0],
   ['Bash git add docs/spec.md', { tool_name: 'Bash', tool_input: { command: 'git add docs/spec.md' } }, 0],
+  ['Bash 保護対象外へのヒアドキュメント（本文に保護パスと rm）', { tool_name: 'Bash', tool_input: { command: "cat > scripts/x.mjs <<'EOF'\n// docs/spec.md は rm しない\nEOF" } }, 0],
+  ['Bash git commit -m "$(cat <<EOF …)"（本文に spec.md と <…>）', { tool_name: 'Bash', tool_input: { command: "git commit -m \"$(cat <<'EOF'\ndocs/spec.md v0.7\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\"" } }, 0],
+  ['Bash git commit -m "docs/spec.md … <…>"', { tool_name: 'Bash', tool_input: { command: 'git commit -m "docs/spec.md を更新 <noreply@anthropic.com>"' } }, 0],
+  ["PowerShell git commit -m 'docs/spec.md > 更新'", { tool_name: 'PowerShell', tool_input: { command: "git commit -m 'docs/spec.md > 更新'" } }, 0],
 ];
 
 let fail = 0;
