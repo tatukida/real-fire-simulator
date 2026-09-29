@@ -1,0 +1,16 @@
+node_modules/
+web/dist/
+web/coverage/
+web/playwright-report/
+web/test-results/
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+pipeline/.cache/
+data/raw/
+.firebase/
+firebase-debug.log*
+.env
+.env.*
+.DS_Store

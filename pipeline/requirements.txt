@@ -1,0 +1,6 @@
+pandas>=2.2
+numpy>=1.26
+xlrd>=2.0.1      # Damodaran の histretSP.xls（旧形式 .xls）の読み込みに必要
+openpyxl>=3.1    # JST の .xlsx の読み込みに必要
+pytest>=8.0
+ruff>=0.6
