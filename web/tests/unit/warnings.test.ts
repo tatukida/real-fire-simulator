@@ -3,7 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { commonPeriod, parseReturnsData } from '../../src/core/data';
 import { historicalPaths } from '../../src/core/generators';
-import { CAUTION_TEXT, NO_HISTORY_LABEL, REFERENCE_LABEL, sampleWarning, STRONG_TEXT } from '../../src/core/warnings';
+import { sampleWarning, WARNING_TEXTS } from '../../src/core/warnings';
+
+const T = WARNING_TEXTS;
 
 const Y = 54; // 共通期間の年数（GOLD × USD の 1972〜2025 と同じ長さ）
 
@@ -11,12 +13,12 @@ describe('N の境界（共通期間 54 年、N = 54 − T + 1）', () => {
   it.each([
     // [N, 段階, ヒストリカルを計算するか, ラベル, 文言]
     [20, 'none', true, null, null],
-    [19, 'caution', true, null, CAUTION_TEXT],
-    [10, 'caution', true, null, CAUTION_TEXT],
-    [9, 'strong', true, REFERENCE_LABEL, STRONG_TEXT],
-    [1, 'strong', true, REFERENCE_LABEL, STRONG_TEXT],
-    [0, 'noHistory', false, NO_HISTORY_LABEL, STRONG_TEXT],
-    [-5, 'noHistory', false, NO_HISTORY_LABEL, STRONG_TEXT],
+    [19, 'caution', true, null, T.caution(19)],
+    [10, 'caution', true, null, T.caution(10)],
+    [9, 'strong', true, T.referenceLabel, T.strong(9)],
+    [1, 'strong', true, T.referenceLabel, T.strong(1)],
+    [0, 'noHistory', false, T.noHistoryLabel, T.noHistory],
+    [-5, 'noHistory', false, T.noHistoryLabel, T.noHistory],
   ] as const)('N = %d → %s', (n, level, available, label, message) => {
     const w = sampleWarning(Y, Y - n + 1);
     expect(w).toEqual({ startCount: n, level, historicalAvailable: available, historicalLabel: label, message });
@@ -28,12 +30,18 @@ describe('N の境界（共通期間 54 年、N = 54 − T + 1）', () => {
     expect(w.level).toBe('strong');
     expect(w.historicalLabel).toBe('参考値');
   });
-  it('T > 共通期間の年数 なら N ≤ 0: ヒストリカルは計算せず「過去実績が不足」と強い注意', () => {
+  it('T > 共通期間の年数 なら N ≤ 0: ヒストリカルは計算せず、「不足」を示し「参考値」とは言わない', () => {
     for (const t of [Y + 1, Y + 2, 60]) {
       const w = sampleWarning(Y, t);
       expect(w.historicalAvailable).toBe(false);
       expect(w.historicalLabel).toBe('過去実績が不足');
-      expect(w.message).toBe(STRONG_TEXT);
+      expect(w.message).toBe(
+        '過去実績が不足しているため、過去実績方式は計算できません。ブートストラップとパラメトリックの結果をご覧ください。',
+      );
+      for (const text of [w.message, w.historicalLabel]) {
+        expect(text).toContain('不足');
+        expect(text).not.toContain('参考値');
+      }
     }
   });
   it('T = 0 なら N = 期間 + 1', () => {
@@ -42,9 +50,16 @@ describe('N の境界（共通期間 54 年、N = 54 − T + 1）', () => {
 });
 
 describe('文言（spec.md 4章 項目9）', () => {
-  it('注意は spec の文言を含み、どちらも窓の重なりに触れる', () => {
-    expect(CAUTION_TEXT).toContain('過去実績の標本が少ないため、参考程度に見てください');
-    for (const t of [CAUTION_TEXT, STRONG_TEXT]) expect(t).toContain('独立な標本の数は N よりさらに少なく');
+  it('注意は spec の文言を含み、注意・強い注意とも窓の重なりに触れる', () => {
+    expect(sampleWarning(Y, Y - 15 + 1).message).toContain('過去実績の標本が少ないため、参考程度に見てください');
+    for (const n of [15, 5]) expect(sampleWarning(Y, Y - n + 1).message).toContain('独立な標本の数は');
+  });
+  it('文言の N は実際の開始年数に置き換える', () => {
+    const strong = sampleWarning(Y, Y - 5 + 1).message ?? '';
+    expect(strong).toContain('5');
+    expect(strong).toContain('開始年の数（5）');
+    expect(strong).not.toContain('N');
+    expect(sampleWarning(Y, Y - 17 + 1).message).toContain('開始年の数（17）');
   });
 });
 
