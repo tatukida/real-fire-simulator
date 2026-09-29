@@ -22,10 +22,10 @@ from . import parse, transform
 from .config import (
     ASSET_START_FLOOR,
     ASSETS,
+    MIN_COUNTRIES_DM,
     NOTICE_FOOTER_JA,
     NOTICE_HEADER_JA,
     OUTPUT_FILE,
-    MIN_COUNTRIES_DM,
     RAW_DIR,
     SCHEMA_VERSION,
     SOURCES,
