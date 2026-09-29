@@ -1,11 +1,14 @@
-// 保護対象フック（.claude/hooks/protect-paths.mjs）の拒否・許可ケースを検査する。
+// 保護対象フック（入口 .claude/hooks/run-protect.mjs → 判定 protect-paths.mjs）の拒否・許可ケースを検査する。
+// 判定モジュールが壊れている場合（構文エラー・例外・固まる）に入口が終了コード 2 を返すことも検査する。
 // 使い方: node scripts/test-protect-hook.mjs
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const hook = path.join(root, '.claude/hooks/protect-paths.mjs');
+const hook = path.join(root, '.claude/hooks/run-protect.mjs');
 const P = (rel) => path.join(root, rel);
 
 // [説明, 入力, 期待 exit code]
@@ -66,5 +69,47 @@ for (const allow of [false, true]) {
     console.log(`${ok ? 'OK  ' : 'NG  '} [ALLOW=${allow ? 1 : 0}] exit=${r.status} (期待 ${want})  ${name}`);
   }
 }
+// settings.json が入口を呼んでいること（判定モジュールを直接呼ぶと、壊れたときに保護が外れる）
+{
+  const settings = JSON.parse(fs.readFileSync(path.join(root, '.claude/settings.json'), 'utf-8'));
+  const commands = settings.hooks.PreToolUse.flatMap((m) => m.hooks.map((h) => h.command));
+  const ok = commands.length === 1 && commands[0].endsWith('/.claude/hooks/run-protect.mjs"');
+  if (!ok) fail++;
+  console.log(`${ok ? 'OK  ' : 'NG  '} settings.json の PreToolUse は run-protect.mjs だけを呼ぶ: ${JSON.stringify(commands)}`);
+}
+
+// 壊れた判定モジュール: 入口を一時フォルダに複製し、隣に壊れた protect-paths.mjs を置いて実行する。
+// （判定モジュールの場所を環境変数などで切り替えられるようにはしない。それ自体が保護の抜け道になるため。）
+const broken = [
+  ['構文エラー', 'export function check( {\n'],
+  ['読み込み時に例外', "throw new Error('boom');\n"],
+  ['check() が例外', "export function check() { throw new Error('boom'); }\n"],
+  ['check() の Promise が拒否', "export async function check() { throw new Error('boom'); }\n"],
+  ['check() が固まる（終わらない Promise）', 'export function check() { return new Promise(() => {}); }\n'],
+  ['読み込みが固まる（終わらない top-level await）', 'await new Promise(() => {});\nexport function check() { return null; }\n'],
+  ['check() を export していない', 'export const other = 1;\n'],
+  ['非同期で例外（未処理）', "export function check() { setTimeout(() => { throw new Error('boom'); }, 0); return new Promise(() => {}); }\n"],
+];
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'protect-hook-'));
+try {
+  fs.copyFileSync(hook, path.join(tmp, 'run-protect.mjs'));
+  const allowedInput = JSON.stringify({ tool_name: 'Read', tool_input: { file_path: P('README.md') } });
+  for (const allow of [false, true]) {
+    for (const [name, source] of broken) {
+      fs.writeFileSync(path.join(tmp, 'protect-paths.mjs'), source);
+      const env = { ...process.env, CLAUDE_PROJECT_DIR: root };
+      delete env.ALLOW_PROTECTED;
+      if (allow) env.ALLOW_PROTECTED = '1';
+      const r = spawnSync('node', [path.join(tmp, 'run-protect.mjs')], { input: allowedInput, env, encoding: 'utf-8', timeout: 30000 });
+      // 本来は許可される入力でも、判定モジュールが壊れていれば拒否する
+      const ok = r.status === 2;
+      if (!ok) fail++;
+      console.log(`${ok ? 'OK  ' : 'NG  '} [ALLOW=${allow ? 1 : 0}] exit=${r.status} (期待 2)  壊れた判定モジュール: ${name}`);
+    }
+  }
+} finally {
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
 console.log(fail === 0 ? '全ケース期待どおり' : `${fail} 件が期待と不一致`);
 process.exit(fail === 0 ? 0 : 1);

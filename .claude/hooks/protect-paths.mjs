@@ -1,5 +1,5 @@
-#!/usr/bin/env node
-// PreToolUse フック: 保護対象（CLAUDE.md「保護対象」）への編集を拒否する。
+// PreToolUse フックの判定: 保護対象（CLAUDE.md「保護対象」）への編集を拒否する。
+// 入口は run-protect.mjs（終了コードはそちらで決める）。このファイルは check() を export するだけで、自分では終了しない。
 //
 // 解除: 人間が承認する場合のみ、環境変数 ALLOW_PROTECTED=1 を付けて Claude Code を起動する。
 //   bash:       ALLOW_PROTECTED=1 claude
@@ -12,7 +12,7 @@
 //   - `-m` に渡す引用符付き文字列（コミットメッセージ）。`-m "$(cat <<'EOF' … EOF )"` の形を含む。
 //   解釈があいまいになる入力（バッククォート、\" や \'、PowerShell のヒア文字列、上記以外の <<、
 //   "$(…)" を含む文字列、展開される本文の $(…)）では何も取り除かず、元のコマンド全体で判定する。
-// 拒否時は exit 2 + stderr（Claude Code がツール呼び出しを止め、理由を Claude に返す）。
+// 拒否時は理由の文字列を返す（入口が stderr に書いて exit 2 にし、Claude Code がツール呼び出しを止める）。
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -164,12 +164,9 @@ function checkShellTool(input) {
   return `コマンドが保護対象（${hit}）に書き込む可能性があります`;
 }
 
-async function main() {
-  let raw = '';
-  for await (const chunk of process.stdin) raw += chunk;
-  const input = JSON.parse(raw || '{}');
-
-  if (process.env.ALLOW_PROTECTED === '1') return 0;
+// 入力（Claude Code から渡された JSON を解析したもの）を判定し、拒否するなら理由、許可するなら null を返す。
+export function check(input) {
+  if (process.env.ALLOW_PROTECTED === '1') return null;
 
   const root = projectRoot(input);
   let reason = null;
@@ -178,21 +175,11 @@ async function main() {
   } else if (['Bash', 'PowerShell'].includes(input.tool_name)) {
     reason = checkShellTool(input);
   }
-  if (!reason) return 0;
+  if (!reason) return null;
 
-  process.stderr.write(
+  return (
     `保護対象への編集は拒否されました: ${reason}\n` +
-      '変更には人間の承認が必要です（CLAUDE.md「保護対象」）。修正せず、理由を人間に報告してください。\n' +
-      '人間が承認した場合のみ、ALLOW_PROTECTED=1 を付けて Claude Code を起動し直すと解除されます。\n',
+    '変更には人間の承認が必要です（CLAUDE.md「保護対象」）。修正せず、理由を人間に報告してください。\n' +
+    '人間が承認した場合のみ、ALLOW_PROTECTED=1 を付けて Claude Code を起動し直すと解除されます。\n'
   );
-  return 2;
 }
-
-main().then(
-  (code) => process.exit(code),
-  (err) => {
-    // 入力が壊れているときも安全側（拒否）に倒す。
-    process.stderr.write(`protect-paths フックの実行に失敗したため拒否します: ${err}\n`);
-    process.exit(2);
-  },
-);
