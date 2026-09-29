@@ -4,3 +4,4 @@ export * from './engine';
 export * from './generators';
 export * from './prng';
 export * from './stats';
+export * from './solve';
