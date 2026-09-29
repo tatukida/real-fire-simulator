@@ -265,7 +265,7 @@ def jst_panel(years, countries=12, eq=0.10, fx_by_year=None) -> pd.DataFrame:
 def test_jst_parser_columns_case_and_errors():
     df = jst_panel([2000, 2001]).rename(columns={"eq_tr": "EQ_TR"})
     out = parse.parse_jst_panel(df)
-    assert set(["year", "country", "eq_tr", "xrusd"]) <= set(out.columns) and len(out) == 24
+    assert {"year", "country", "eq_tr", "xrusd"} <= set(out.columns) and len(out) == 24
     for bad in (df.drop(columns=["xrusd"]), pd.concat([df, df.iloc[:1]]), df.assign(EQ_TR=float("nan"))):
         try:
             parse.parse_jst_panel(bad)
