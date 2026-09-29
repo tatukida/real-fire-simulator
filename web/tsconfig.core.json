@@ -1,0 +1,10 @@
+{
+  // core/ は DOM・Node に依存させない（Worker と Node テストの両方で動かすため）。
+  // DOM や node の型を外して型チェックし、依存が紛れ込んだら失敗させる。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/core"]
+}
