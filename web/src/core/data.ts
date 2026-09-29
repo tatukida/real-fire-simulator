@@ -139,7 +139,7 @@ export function realReturnSeries(data: ReturnsData, asset: AssetId, currency: Cu
 
 /**
  * ヒストリカル手法の開始年数 N = 共通期間の年数 − FIRE期間 + 1（spec.md 4章 項目9）。
- * 期間が共通期間より長いと 0 以下になる（その場合の扱いは spec.md の未決事項で確定させる）。
+ * 期間が共通期間より長いと 0 以下になり、ヒストリカル手法は計算しない（spec.md 7章 決定済み v0.7 項目10）。
  */
 export function historicalStartCount(periodYears: number, fireYears: number): number {
   return periodYears - fireYears + 1;
