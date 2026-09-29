@@ -22,7 +22,7 @@ from reference import simulate as sim
 
 VECTORS_FILE = Path(__file__).parent / "fixtures" / "real_returns_vectors.json"
 
-SPEC_VERSION = "0.8"
+SPEC_VERSION = "0.9"
 PATHS = 1000
 DEFAULT_SEED = 20260929
 INITIAL = {"USD": 1_000_000, "JPY": 50_000_000}

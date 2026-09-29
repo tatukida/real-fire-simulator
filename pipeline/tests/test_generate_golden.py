@@ -27,7 +27,7 @@ def _case(out_dir, cid):
 
 def test_index_size_and_determinism(out_dir, tmp_path):
     index = json.loads((out_dir / "index.json").read_text(encoding="utf-8"))
-    assert index["specVersion"] == "0.8"
+    assert index["specVersion"] == "0.9"
     assert index["cases"] == CASE_IDS
     assert {"generatedAt", "python", "numpy"} <= index.keys()
     assert sorted(p.stem for p in (out_dir / "cases").iterdir()) == sorted(CASE_IDS)
