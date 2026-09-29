@@ -24,9 +24,10 @@ describe('solveSpendingForPaths', () => {
   const r = bootstrapPaths(series, 30, 1000, 42);
   const res = solveSpendingForPaths(r, A, 0.001);
 
-  it('結果の生活費は目標以上、上端は目標未満', () => {
+  it('結果の生活費は目標以上、上端は目標未満。頭打ちではない（capped = false）', () => {
     expect(res).not.toBeNull();
     if (res === null) return;
+    expect(res.capped).toBe(false);
     expect(res.successRate).toBe(rateOf(r, res.spending));
     expect(res.successRate).toBeGreaterThanOrEqual(TARGET_SUCCESS_RATE);
     expect(rateOf(r, res.upper)).toBeLessThan(TARGET_SUCCESS_RATE);
@@ -46,6 +47,7 @@ describe('solveSpendingForPaths', () => {
     expect(s.spending).toBeLessThan(1 / T);
     expect(s.upper).toBeGreaterThanOrEqual(1 / T - 1e-15);
     expect(s.successRate).toBe(1);
+    expect(s.capped).toBe(false);
   });
   it('生活費 0 でも目標未満（倍率 0 で全損するパスが 10% 超）なら null', () => {
     // 10 パス中 2 パスが 1 年目に −100%（倍率 0）→ 生活費 0 でも成功率 80%
@@ -59,7 +61,7 @@ describe('solveSpendingForPaths', () => {
   });
   it('T = 0 なら生活費 = 初期資産でも成功率 100% なので初期資産を返す', () => {
     const s = solveSpendingForPaths({ paths: 4, years: 0, values: new Float64Array(0) }, A, 0.01);
-    expect(s).toEqual({ spending: A, successRate: 1, upper: A, evaluations: 2 });
+    expect(s).toEqual({ spending: A, successRate: 1, upper: A, capped: true, evaluations: 2 });
   });
 });
 

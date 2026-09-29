@@ -10,7 +10,7 @@
  *
  * 端の扱い（2026-09-29 に人間が決定）:
  * - 生活費 0 でも目標未満なら null（該当なし）。
- * - 生活費 = 初期資産でも目標以上（T = 0 のとき）なら初期資産を返す。
+ * - 生活費 = 初期資産でも目標以上（T = 0 のとき）なら初期資産を返し、capped = true とする（ADR-0003）。
  */
 
 import { simulate, type ReturnPaths } from './engine';
@@ -25,8 +25,10 @@ export interface SolveResult {
   readonly spending: number;
   /** spending での成功率 */
   readonly successRate: number;
-  /** 打ち切り時の上端（目標未満の側）。上端で打ち切らなかった場合は spending と同じ */
+  /** 打ち切り時の上端（目標未満の側）。capped のときは spending と同じ */
   readonly upper: number;
+  /** 探索範囲の上端（初期資産）でも目標以上で、上端を返した（上限で頭打ち）なら true */
+  readonly capped: boolean;
   /** 成功率を評価した回数 */
   readonly evaluations: number;
 }
@@ -54,7 +56,7 @@ export function bisectSpending(
   if (loRate < target) return null;
   let hi = initialAssets;
   const hiRate = rate(hi);
-  if (hiRate >= target) return { spending: hi, successRate: hiRate, upper: hi, evaluations };
+  if (hiRate >= target) return { spending: hi, successRate: hiRate, upper: hi, capped: true, evaluations };
 
   const tolerance = initialAssets * SOLVE_RELATIVE_TOLERANCE;
   while (hi - lo >= tolerance) {
@@ -67,7 +69,7 @@ export function bisectSpending(
       hi = mid;
     }
   }
-  return { spending: lo, successRate: loRate, upper: hi, evaluations };
+  return { spending: lo, successRate: loRate, upper: hi, capped: false, evaluations };
 }
 
 /** 固定したリターン列で、成功率が目標以上となる年間生活費の上限を探す。 */
