@@ -115,3 +115,77 @@ def parametric_returns(series: np.ndarray, horizon: int, paths: int, seed: int) 
         for t in range(horizon):
             out[p, t] = math.exp(rng.next_normal() * sigma + mu) - 1.0
     return out
+
+
+# ---- 集計・逆算 ----
+
+PERCENTILES = (10, 25, 50, 75, 90)
+MAX_SAMPLE_PATHS = 200
+TARGET_RATE = 0.9
+SOLVE_REL_WIDTH = 1e-4
+
+
+def success_rate(res: EngineResult) -> float:
+    return int(res.success.sum()) / len(res.success)
+
+
+def percentiles(balances: np.ndarray) -> dict[str, list[float]]:
+    """年 0〜T の各年末残高のパーセンタイル。NumPy 既定（線形補間）。破産パスは 0 で含む（決定済み 6）。"""
+    return {f"p{q}": np.percentile(balances, q, axis=0).tolist() for q in PERCENTILES}
+
+
+def sample_paths(balances: np.ndarray, historical: bool) -> np.ndarray:
+    """ヒストリカルは全パス、それ以外はパス番号の先頭から最大 200 本（決定済み 7）。"""
+    return balances if historical else balances[:MAX_SAMPLE_PATHS]
+
+
+def ruin_histogram(res: EngineResult) -> tuple[list[int], int]:
+    """年 1〜T の破産数と、別枠の endedAtZero（ADR-0003 決定 3）。"""
+    horizon = res.balances.shape[1] - 1
+    counts = np.bincount(res.ruin_year, minlength=horizon + 1)[1:]
+    return [int(c) for c in counts], int(res.ended_at_zero.sum())
+
+
+@dataclass(frozen=True)
+class SolveResult:
+    spending: float
+    success_rate: float
+    upper: float
+    capped: bool
+    evaluations: int
+
+
+def solve_spending(
+    returns: np.ndarray,
+    initial: float,
+    fee: float,
+    target: float = TARGET_RATE,
+    rel_width: float = SOLVE_REL_WIDTH,
+) -> SolveResult | None:
+    """成功率が target 以上となる年間生活費の上限を二分探索する（決定済み 2・9、ADR-0003 決定 1・2）。
+
+    リターン列は固定（呼び出し側で1回だけ生成）。evaluations は成功率を計算した回数で、
+    下端（生活費 0）→ 上端（初期資産）→ 中点の順にすべて数える（2026-09-29, 人間の決定）。
+    """
+    evaluations = 0
+
+    def rate(spending: float) -> float:
+        nonlocal evaluations
+        evaluations += 1
+        return success_rate(run_engine(returns, initial, spending, fee))
+
+    lo_rate = rate(0.0)
+    if lo_rate < target:
+        return None
+    hi_rate = rate(initial)
+    if hi_rate >= target:
+        return SolveResult(initial, hi_rate, initial, True, evaluations)
+    lo, hi = 0.0, initial
+    while hi - lo >= initial * rel_width:
+        mid = (lo + hi) / 2.0
+        mid_rate = rate(mid)
+        if mid_rate >= target:
+            lo, lo_rate = mid, mid_rate
+        else:
+            hi = mid
+    return SolveResult(lo, lo_rate, hi, False, evaluations)
