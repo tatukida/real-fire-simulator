@@ -55,6 +55,10 @@ IT エンジニアの公開ポートフォリオ。**課金リスクゼロ**と*
 - `firebase.json` のセキュリティヘッダ（CSP など）
 - 品質ゲートの閾値
 
+上記のうち `docs/spec.md`・`web/tests/property/`・`web/tests/golden/`・`golden/`、およびフック自身（`.claude/settings.json`・`.claude/hooks/`）への編集は、
+PreToolUse フック（`.claude/hooks/protect-paths.mjs`）が拒否する。人間が承認した場合のみ `ALLOW_PROTECTED=1` を付けて Claude Code を起動すると解除される。
+フックの判定は `node scripts/test-protect-hook.mjs` で検査できる。拒否されたら回避策を探さず、人間に報告する。
+
 **テストを書き換えて合格させてはならない。** テストが誤っていると思う場合も、修正せず理由を報告する。
 新しいテストの追加は歓迎（`web/tests/unit/` など保護対象外の場所に追加）。
 
